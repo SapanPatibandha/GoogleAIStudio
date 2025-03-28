@@ -1,0 +1,49 @@
+# .NET build artifacts
+bin/
+obj/
+out/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Logs
+*.log
+logs/
+
+# Visual Studio Code
+.vscode/
+.vscode/*
+
+# Rider
+.idea/
+.idea/*
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# NuGet packages
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# Resharper
+_ReSharper*/
+*.DotSettings.user
+
+# Coverage and test results
+TestResults/
+*.coverage
+*.coveragexml
+*.testsettings
+*.vsmdi
+*.trx
+
+# Other
+*.swp
+*.bak
+*.tmp
