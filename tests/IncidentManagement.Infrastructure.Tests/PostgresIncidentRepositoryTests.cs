@@ -24,7 +24,7 @@ namespace IncidentManagement.Infrastructure.Tests
             _readerMock = new Mock<NpgsqlDataReader>();
 
             // Mock the connection string
-            var connectionString = "Host=localhost;Database=IncidentDB;Username=postgres;Password=password";
+            var connectionString = "Host=localhost;Database=IncidentDB;Username=postgres;Password=postgres";
             _repository = new PostgresIncidentRepository(connectionString);
         }
 
