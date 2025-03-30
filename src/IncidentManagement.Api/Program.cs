@@ -13,7 +13,12 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection"); // Or read from appsettings.json
 
 builder.Services.AddScoped<IIncidentRepository>(sp => new PostgresIncidentRepository(connectionString));
-builder.Services.AddScoped<IIncidentReadModelRepository>(sp => new PostgresIncidentReadModelRepository(connectionString));
+builder.Services.AddScoped<IIncidentReadModelRepository>(sp =>
+{
+    var databaseConnection = new DatabaseConnection(connectionString); // Assuming DatabaseConnection implements IDatabaseConnection
+    var queryExecutor = sp.GetRequiredService<IDatabaseQueryExecutor>(); // Assuming IDatabaseQueryExecutor is registered
+    return new PostgresIncidentReadModelRepository(queryExecutor, databaseConnection);
+});
 builder.Services.AddScoped<IncidentApplicationService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle

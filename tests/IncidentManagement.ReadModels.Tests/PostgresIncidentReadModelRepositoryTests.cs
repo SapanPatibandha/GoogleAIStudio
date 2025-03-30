@@ -1,8 +1,10 @@
 using IncidentManagement.Domain;
+using IncidentManagement.Infrastructure;
 using IncidentManagement.ReadModels;
 using Moq;
 using Npgsql;
 using System;
+using System.Data;
 using System.Threading.Tasks;
 using Xunit;
 
@@ -10,19 +12,21 @@ namespace IncidentManagement.ReadModels.Tests
 {
     public class PostgresIncidentReadModelRepositoryTests
     {
-        private readonly Mock<NpgsqlConnection> _connectionMock;
-        private readonly Mock<NpgsqlCommand> _commandMock;
-        private readonly Mock<NpgsqlDataReader> _readerMock;
+        private readonly Mock<IDatabaseConnection> _databaseConnectionMock;
+        private readonly Mock<IDatabaseQueryExecutor> _databaseQueryExecutorMock;
+        // private readonly Mock<NpgsqlCommand> _commandMock;
         private readonly PostgresIncidentReadModelRepository _repository;
 
         public PostgresIncidentReadModelRepositoryTests()
         {
-            _connectionMock = new Mock<NpgsqlConnection>();
-            _commandMock = new Mock<NpgsqlCommand>();
-            _readerMock = new Mock<NpgsqlDataReader>();
+            _databaseConnectionMock = new Mock<IDatabaseConnection>();
+            _databaseQueryExecutorMock = new Mock<IDatabaseQueryExecutor>();
+            // _commandMock = new Mock<NpgsqlCommand>();
 
-            var connectionString = "Host=localhost;Database=IncidentDB;Username=postgres;Password=password";
-            _repository = new PostgresIncidentReadModelRepository(connectionString);
+            // var mockConnection = new Mock<NpgsqlConnection>();
+            // _databaseConnectionMock.Setup(db => db.GetConnection()).Returns(mockConnection.Object);
+
+            _repository = new PostgresIncidentReadModelRepository(_databaseQueryExecutorMock.Object, _databaseConnectionMock.Object);
         }
 
         [Fact]
@@ -30,24 +34,25 @@ namespace IncidentManagement.ReadModels.Tests
         {
             // Arrange
             var incidentId = Guid.NewGuid();
+            var mockReader = new Mock<IDataReader>();
 
-            _readerMock.SetupSequence(r => r.ReadAsync())
-                .ReturnsAsync(true)
-                .ReturnsAsync(false);
+            mockReader.SetupSequence(r => r.Read())
+                .Returns(true)
+                .Returns(false);
 
-            _readerMock.Setup(r => r.GetGuid(0)).Returns(incidentId);
-            _readerMock.Setup(r => r.GetString(1)).Returns("Test Incident");
-            _readerMock.Setup(r => r.GetString(2)).Returns("Test Description");
-            _readerMock.Setup(r => r.IsDBNull(3)).Returns(true); // No assigned agent
-            _readerMock.Setup(r => r.GetString(4)).Returns(Priority.Low.ToString());
-            _readerMock.Setup(r => r.GetString(5)).Returns(IncidentStatus.Open.ToString());
-            _readerMock.Setup(r => r.IsDBNull(6)).Returns(true); // No last comment
+            mockReader.Setup(r => r.GetGuid(0)).Returns(incidentId);
+            mockReader.Setup(r => r.GetString(1)).Returns("Test Incident");
+            mockReader.Setup(r => r.GetString(2)).Returns("Test Description");
+            mockReader.Setup(r => r.IsDBNull(3)).Returns(true); // No assigned agent
+            mockReader.Setup(r => r.GetString(4)).Returns(Priority.Low.ToString());
+            mockReader.Setup(r => r.GetString(5)).Returns(IncidentStatus.Open.ToString());
+            mockReader.Setup(r => r.IsDBNull(6)).Returns(true); // No last comment
 
-            _commandMock.Setup(c => c.ExecuteReaderAsync(default))
-                .ReturnsAsync(_readerMock.Object);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             var result = await _repository.GetIncidentReadModelAsync(incidentId);
@@ -68,15 +73,15 @@ namespace IncidentManagement.ReadModels.Tests
         {
             // Arrange
             var incidentId = Guid.NewGuid();
+            var mockReader = new Mock<IDataReader>();
 
-            _readerMock.Setup(r => r.ReadAsync())
-                .ReturnsAsync(false);
+            mockReader.Setup(r => r.Read()).Returns(false);
 
-            _commandMock.Setup(c => c.ExecuteReaderAsync(default))
-                .ReturnsAsync(_readerMock.Object);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             var result = await _repository.GetIncidentReadModelAsync(incidentId);
@@ -88,6 +93,8 @@ namespace IncidentManagement.ReadModels.Tests
         [Fact]
         public async Task UpdateIncidentReadModelAsync_ShouldInsertIncident_WhenIncidentCreatedEvent()
         {
+            var mockReader = new Mock<IDataReader>();
+
             // Arrange
             var @event = new IncidentCreatedEvent(
                 Guid.NewGuid(),
@@ -96,22 +103,27 @@ namespace IncidentManagement.ReadModels.Tests
                 DateTime.UtcNow
             );
 
-            _commandMock.Setup(c => c.ExecuteNonQueryAsync())
-                .ReturnsAsync(1);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _commandMock.Setup(c => c.ExecuteNonQueryAsync())
+            //     .ReturnsAsync(1);
+
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             await _repository.UpdateIncidentReadModelAsync(@event);
 
             // Assert
-            _commandMock.Verify(c => c.ExecuteNonQueryAsync(), Times.Once);
+            _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateIncidentReadModelAsync_ShouldUpdateAgent_WhenAgentAssignedEvent()
         {
+            var mockReader = new Mock<IDataReader>();
+
             // Arrange
             var @event = new AgentAssignedEvent(
                 Guid.NewGuid(),
@@ -119,22 +131,27 @@ namespace IncidentManagement.ReadModels.Tests
                 DateTime.UtcNow
             );
 
-            _commandMock.Setup(c => c.ExecuteNonQueryAsync())
-                .ReturnsAsync(1);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _commandMock.Setup(c => c.ExecuteNonQueryAsync())
+            //     .ReturnsAsync(1);
+
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             await _repository.UpdateIncidentReadModelAsync(@event);
 
             // Assert
-            _commandMock.Verify(c => c.ExecuteNonQueryAsync(), Times.Once);
+            _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateIncidentReadModelAsync_ShouldUpdatePriority_WhenPrioritySetEvent()
         {
+            var mockReader = new Mock<IDataReader>();
+
             // Arrange
             var @event = new PrioritySetEvent(
                 Guid.NewGuid(),
@@ -142,22 +159,24 @@ namespace IncidentManagement.ReadModels.Tests
                 DateTime.UtcNow
             );
 
-            _commandMock.Setup(c => c.ExecuteNonQueryAsync())
-                .ReturnsAsync(1);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             await _repository.UpdateIncidentReadModelAsync(@event);
 
             // Assert
-            _commandMock.Verify(c => c.ExecuteNonQueryAsync(), Times.Once);
+            _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateIncidentReadModelAsync_ShouldUpdateComment_WhenCommentAddedEvent()
         {
+            var mockReader = new Mock<IDataReader>();
+
             // Arrange
             var @event = new CommentAddedEvent(
                 Guid.NewGuid(), // IncidentId
@@ -166,22 +185,27 @@ namespace IncidentManagement.ReadModels.Tests
                 DateTime.UtcNow // Timestamp
             );
 
-            _commandMock.Setup(c => c.ExecuteNonQueryAsync())
-                .ReturnsAsync(1);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _commandMock.Setup(c => c.ExecuteNonQueryAsync())
+            //     .ReturnsAsync(1);
+
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             await _repository.UpdateIncidentReadModelAsync(@event);
 
             // Assert
-            _commandMock.Verify(c => c.ExecuteNonQueryAsync(), Times.Once);
+            _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
 
         [Fact]
         public async Task UpdateIncidentReadModelAsync_ShouldUpdateStatus_WhenStatusUpdatedEvent()
         {
+            var mockReader = new Mock<IDataReader>();
+
             // Arrange
             var @event = new StatusUpdatedEvent(
                 Guid.NewGuid(), // IncidentId
@@ -189,17 +213,17 @@ namespace IncidentManagement.ReadModels.Tests
                 DateTime.UtcNow // Timestamp
             );
 
-            _commandMock.Setup(c => c.ExecuteNonQueryAsync())
-                .ReturnsAsync(1);
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
 
-            _connectionMock.Setup(c => c.CreateCommand())
-                .Returns(_commandMock.Object);
+            // _connectionMock.Setup(c => c.CreateCommand())
+            //     .Returns(_commandMock.Object);
 
             // Act
             await _repository.UpdateIncidentReadModelAsync(@event);
 
             // Assert
-            _commandMock.Verify(c => c.ExecuteNonQueryAsync(), Times.Once);
+            _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
     }
 }

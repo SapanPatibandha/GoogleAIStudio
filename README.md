@@ -106,6 +106,26 @@ To run all unit tests, execute the following command:
 dotnet test
 ```
 
+### Generate Code Coverage Report
+1. Run tests with code coverage:
+   ```bash
+   dotnet test --collect:"XPlat Code Coverage"
+   ```
+
+2. Install `ReportGenerator` (if not already installed):
+   ```bash
+   dotnet tool install -g dotnet-reportgenerator-globaltool
+   ```
+
+3. Generate the HTML report:
+   ```bash
+   reportgenerator -reports:TestResults/**/*.coverage -targetdir:coverage-report -reporttypes:Html
+   ```
+
+4. Open the report:
+   - Navigate to the `coverage-report` folder.
+   - Open `index.html` in your browser.
+
 ## Troubleshooting
 
 ### Common Issues
