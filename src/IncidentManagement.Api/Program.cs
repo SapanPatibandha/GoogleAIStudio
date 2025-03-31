@@ -4,6 +4,7 @@ using IncidentManagement.Infrastructure;
 using IncidentManagement.ReadModels;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.DependencyInjection;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,7 +14,14 @@ var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("DefaultConnection"); // Or read from appsettings.json
 
 builder.Services.AddScoped<IIncidentRepository>(sp => new PostgresIncidentRepository(connectionString));
-builder.Services.AddScoped<IIncidentReadModelRepository>(sp => new PostgresIncidentReadModelRepository(connectionString));
+builder.Services.AddScoped<IIncidentReadModelRepository>(sp =>
+{
+    var databaseConnection = new DatabaseConnection(connectionString); // Assuming DatabaseConnection implements IDatabaseConnection
+    var queryExecutor = sp.GetRequiredService<IDatabaseQueryExecutor>(); // Assuming IDatabaseQueryExecutor is registered
+    return new PostgresIncidentReadModelRepository(queryExecutor, databaseConnection);
+});
+builder.Services.AddScoped<PostgresIncidentRepository>(sp =>
+    new PostgresIncidentRepository(connectionString)); // Register PostgresIncidentRepository
 builder.Services.AddScoped<IncidentApplicationService>();
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
@@ -104,5 +112,24 @@ app.MapPut("/api/incidents/{id}/close", async (Guid id, IncidentApplicationServi
 })
 .WithName("CloseIncident")
 .WithOpenApi();
+
+// Get Read model Incident
+app.MapGet("/api/incidents/{id}/readmodel", async (Guid id, [FromServices] PostgresIncidentRepository readModelRepository) =>
+{
+    var incident = await readModelRepository.GetByIdAsync(id);
+    return incident is null ? Results.NotFound() : Results.Ok(incident);
+})
+.WithName("GetReadModel")
+.WithOpenApi();
+
+// //Rebuild Read Model
+// app.MapGet("/api/incidents/{id}/rebuild-readmodel", async (Guid id, PostgresIncidentRepository postgresIncidentRepository) =>
+// {
+//     // Load all events for the incident
+//     var incident = await postgresIncidentRepository.GetByIdAsync(id);
+//     return incident is null ? Results.NotFound() : Results.Ok(incident);
+// })
+// .WithName("RebuildReadModel")
+// .WithOpenApi();
 
 app.Run();

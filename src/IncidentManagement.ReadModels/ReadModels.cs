@@ -1,6 +1,7 @@
 ﻿namespace IncidentManagement.ReadModels
 {
     using IncidentManagement.Domain;
+    using IncidentManagement.Infrastructure;
     using Npgsql;
     using System;
     using System.Threading.Tasks;
@@ -25,50 +26,40 @@
 
     public class PostgresIncidentReadModelRepository : IIncidentReadModelRepository
     {
-        private readonly string _connectionString;
-
-        public PostgresIncidentReadModelRepository(string connectionString)
+        private readonly IDatabaseQueryExecutor _queryExecutor;
+        private readonly IDatabaseConnection _databaseConnection;
+        public PostgresIncidentReadModelRepository(IDatabaseQueryExecutor queryExecutor, IDatabaseConnection databaseConnection)
         {
-            _connectionString = connectionString;
+            _queryExecutor = queryExecutor;
+            _databaseConnection = databaseConnection;
         }
 
         public async Task<IncidentReadModel> GetIncidentReadModelAsync(Guid incidentId)
         {
-            using (var connection = new NpgsqlConnection(_connectionString))
+            var query = "SELECT id, name, description, assigned_agent_id, priority, status, last_comment FROM incident_read_model WHERE id = @incidentId";
+            using (var reader = await _queryExecutor.ExecuteReaderAsync(query, incidentId))
             {
-                await connection.OpenAsync();
-                var sql = "SELECT id, name, description, assigned_agent_id, priority, status, last_comment FROM incident_read_model WHERE id = @incidentId";
-                using (var command = new NpgsqlCommand(sql, connection))
+                if (reader.Read())
                 {
-                    command.Parameters.AddWithValue("incidentId", incidentId);
-
-                    using (var reader = await command.ExecuteReaderAsync())
+                    return new IncidentReadModel
                     {
-                        if (await reader.ReadAsync())
-                        {
-                            return new IncidentReadModel
-                            {
-                                Id = reader.GetGuid(0),
-                                Name = reader.GetString(1),
-                                Description = reader.GetString(2),
-                                AssignedAgentId = reader.IsDBNull(3) ? null : reader.GetGuid(3),
-                                Priority = Enum.Parse<Priority>(reader.GetString(4)),
-                                Status = Enum.Parse<IncidentStatus>(reader.GetString(5)),
-                                LastComment = reader.IsDBNull(6) ? null : reader.GetString(6)
-                            };
-                        }
-                        else
-                        {
-                            return null;
-                        }
-                    }
+                        Id = reader.GetGuid(0),
+                        Name = reader.GetString(1),
+                        Description = reader.GetString(2),
+                        AssignedAgentId = reader.IsDBNull(3) ? (Guid?)null : reader.GetGuid(3),
+                        Priority = Enum.Parse<Priority>(reader.GetString(4)),
+                        Status = Enum.Parse<IncidentStatus>(reader.GetString(5)),
+                        LastComment = reader.IsDBNull(6) ? null : reader.GetString(6)
+                    };
                 }
             }
+
+            return null;
         }
 
         public async Task UpdateIncidentReadModelAsync(Event @event)
         {
-            using (var connection = new NpgsqlConnection(_connectionString))
+            using (var connection = _databaseConnection.GetConnection())
             {
                 await connection.OpenAsync();
 

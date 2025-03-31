@@ -4,6 +4,7 @@
     using Npgsql;
     using System;
     using System.Collections.Generic;
+    using System.Data;
     using System.Text.Json;
     using System.Threading.Tasks;
 
@@ -91,7 +92,7 @@
                 foreach (var @event in events)
                 {
                     var eventType = @event.GetType().Name;
-                    var eventData = JsonSerializer.Serialize(@event);
+                    var eventData = JsonSerializer.Serialize(@event, @event.GetType());
 
                     var sql = "INSERT INTO incident_events (incident_id, event_type, event_data, timestamp) VALUES (@incidentId, @eventType, @eventData::jsonb, @timestamp)";
                     using (var command = new NpgsqlCommand(sql, connection))
@@ -103,6 +104,75 @@
 
                         await command.ExecuteNonQueryAsync();
                     }
+                }
+            }
+        }
+    }
+
+    public interface IDatabaseConnection
+    {
+        NpgsqlConnection GetConnection();
+    }
+
+    public class DatabaseConnection : IDatabaseConnection
+    {
+        private readonly string _connectionString;
+
+        public DatabaseConnection(string connectionString)
+        {
+            _connectionString = connectionString;
+        }
+
+        public NpgsqlConnection GetConnection()
+        {
+            return new NpgsqlConnection(_connectionString);
+        }
+    }
+
+    public interface IDatabaseQueryExecutor
+    {
+        Task<IDataReader> ExecuteReaderAsync(string query, params object[] parameters);
+        Task<int> ExecuteNonQueryAsync(string query, params object[] parameters);
+    }
+
+    public class DatabaseQueryExecutor : IDatabaseQueryExecutor
+    {
+        private readonly string _connectionString;
+
+        public DatabaseQueryExecutor(string connectionString)
+        {
+            _connectionString = connectionString;
+        }
+
+        public async Task<IDataReader> ExecuteReaderAsync(string query, params object[] parameters)
+        {
+            var connection = new NpgsqlConnection(_connectionString);
+            await connection.OpenAsync();
+
+            var command = new NpgsqlCommand(query, connection);
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                command.Parameters.AddWithValue($"@p{i}", parameters[i]);
+            }
+
+            var reader = await command.ExecuteReaderAsync(CommandBehavior.CloseConnection);
+            return reader as IDataReader; // Return as IDataReader for abstraction
+        }
+
+        public async Task<int> ExecuteNonQueryAsync(string query, params object[] parameters)
+        {
+            using (var connection = new NpgsqlConnection(_connectionString))
+            {
+                await connection.OpenAsync();
+
+                using (var command = new NpgsqlCommand(query, connection))
+                {
+                    for (int i = 0; i < parameters.Length; i++)
+                    {
+                        command.Parameters.AddWithValue($"@p{i}", parameters[i]);
+                    }
+
+                    return await command.ExecuteNonQueryAsync();
                 }
             }
         }
