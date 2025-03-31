@@ -92,7 +92,7 @@
                 foreach (var @event in events)
                 {
                     var eventType = @event.GetType().Name;
-                    var eventData = JsonSerializer.Serialize(@event);
+                    var eventData = JsonSerializer.Serialize(@event, @event.GetType());
 
                     var sql = "INSERT INTO incident_events (incident_id, event_type, event_data, timestamp) VALUES (@incidentId, @eventType, @eventData::jsonb, @timestamp)";
                     using (var command = new NpgsqlCommand(sql, connection))
