@@ -26,7 +26,7 @@
             }
 
             var incident = new Incident();
-            foreach (var @event in events)
+            foreach (var (@event, _) in events)
             {
                 incident.Apply(@event);
             }
@@ -41,15 +41,15 @@
         }
 
 
-        private async Task<List<Event>> LoadEventsAsync(Guid incidentId)
+        private async Task<List<(Event @event, string eventVersion)>> LoadEventsAsync(Guid incidentId)
         {
-            var events = new List<Event>();
+            var events = new List<(Event @event, string eventVersion)>();
 
             using (var connection = new NpgsqlConnection(_connectionString))
             {
                 await connection.OpenAsync();
 
-                var sql = "SELECT event_type, event_data FROM incident_events WHERE incident_id = @incidentId ORDER BY timestamp ASC";
+                var sql = "SELECT event_type, event_data, event_version FROM incident_events WHERE incident_id = @incidentId ORDER BY timestamp ASC";
                 using (var command = new NpgsqlCommand(sql, connection))
                 {
                     command.Parameters.AddWithValue("incidentId", incidentId);
@@ -60,20 +60,11 @@
                         {
                             var eventType = reader.GetString(0);
                             var eventDataJson = reader.GetString(1);
+                            var eventVersion = reader.GetString(2);
 
-                            Event @event = eventType switch
-                            {
-                                nameof(IncidentCreatedEvent) => JsonSerializer.Deserialize<IncidentCreatedEvent>(eventDataJson),
-                                nameof(AgentAssignedEvent) => JsonSerializer.Deserialize<AgentAssignedEvent>(eventDataJson),
-                                nameof(PrioritySetEvent) => JsonSerializer.Deserialize<PrioritySetEvent>(eventDataJson),
-                                nameof(CommentAddedEvent) => JsonSerializer.Deserialize<CommentAddedEvent>(eventDataJson),
-                                nameof(StatusUpdatedEvent) => JsonSerializer.Deserialize<StatusUpdatedEvent>(eventDataJson),
-                                nameof(IncidentAcknowledgedEvent) => JsonSerializer.Deserialize<IncidentAcknowledgedEvent>(eventDataJson),
-                                nameof(IncidentClosedEvent) => JsonSerializer.Deserialize<IncidentClosedEvent>(eventDataJson),
-                                _ => throw new Exception($"Unknown event type: {eventType}") //Or handle unknown events
-                            };
+                            Event @event = DeserializeEvent(eventType, eventDataJson, eventVersion);
 
-                            events.Add(@event);
+                            events.Add((@event, eventVersion));
                         }
                     }
                 }
@@ -94,18 +85,52 @@
                     var eventType = @event.GetType().Name;
                     var eventData = JsonSerializer.Serialize(@event, @event.GetType());
 
-                    var sql = "INSERT INTO incident_events (incident_id, event_type, event_data, timestamp) VALUES (@incidentId, @eventType, @eventData::jsonb, @timestamp)";
+                    var sql = "INSERT INTO incident_events (incident_id, event_type, event_data, timestamp, event_version) VALUES (@incidentId, @eventType, @eventData::jsonb, @timestamp, @eventVersion)";
                     using (var command = new NpgsqlCommand(sql, connection))
                     {
                         command.Parameters.AddWithValue("incidentId", incidentId);
                         command.Parameters.AddWithValue("eventType", eventType);
                         command.Parameters.AddWithValue("eventData", eventData);
                         command.Parameters.AddWithValue("timestamp", @event.Timestamp); // or DateTime.UtcNow
+                        command.Parameters.AddWithValue("eventVersion", @event.Version);
 
                         await command.ExecuteNonQueryAsync();
                     }
                 }
             }
+        }
+
+        private Event DeserializeEvent(string eventType, string eventDataJson, string eventVersion)
+        {
+            JsonSerializerOptions options = new() { PropertyNameCaseInsensitive = true };
+
+            return (eventType, eventVersion) switch
+            {
+                (nameof(IncidentCreatedEvent), "00.01") => JsonSerializer.Deserialize<IncidentCreatedEvent>(eventDataJson, options),
+                (nameof(AgentAssignedEvent), "00.01") => JsonSerializer.Deserialize<AgentAssignedEvent>(eventDataJson, options),
+                (nameof(PrioritySetEvent), "00.01") => JsonSerializer.Deserialize<PrioritySetEvent>(eventDataJson, options),
+                (nameof(CommentAddedEvent), "00.01") => JsonSerializer.Deserialize<CommentAddedEvent>(eventDataJson, options),
+                (nameof(StatusUpdatedEvent), "00.01") => JsonSerializer.Deserialize<StatusUpdatedEvent>(eventDataJson, options),
+                (nameof(IncidentAcknowledgedEvent), "00.01") => JsonSerializer.Deserialize<IncidentAcknowledgedEvent>(eventDataJson, options),
+                (nameof(IncidentClosedEvent), "00.01") => JsonSerializer.Deserialize<IncidentClosedEvent>(eventDataJson, options),
+                // ... other events and versions ...
+                _ => throw new Exception($"Unknown event type or version: {eventType} - {eventVersion}")
+            };
+        }
+
+        private IncidentCreatedEvent DeserializeIncidentCreatedEventV2(string eventDataJson, JsonSerializerOptions options)
+        {
+            var temp = JsonSerializer.Deserialize<TempIncidentCreatedEventV2>(eventDataJson, options);
+            return new IncidentCreatedEvent(temp.IncidentId, temp.Name, temp.Description, temp.Timestamp) { Version = "00.02" };
+        }
+
+        public class TempIncidentCreatedEventV2
+        {
+            public Guid IncidentId { get; set; }
+            public string Name { get; set; }
+            public string Description { get; set; }
+            public DateTime Timestamp { get; set; }
+            public string NewField { get; set; } // Example of a new field in v2
         }
     }
 
