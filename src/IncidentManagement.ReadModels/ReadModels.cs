@@ -1,4 +1,6 @@
-﻿namespace IncidentManagement.ReadModels
+﻿
+namespace IncidentManagement.ReadModels
+
 {
     using IncidentManagement.Domain;
     using IncidentManagement.Infrastructure;

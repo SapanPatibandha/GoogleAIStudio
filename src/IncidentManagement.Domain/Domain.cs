@@ -1,17 +1,16 @@
 ﻿namespace IncidentManagement.Domain
 {
     // Base class for all events
-    public abstract record Event(Guid IncidentId, DateTime Timestamp);
-
+    public abstract record Event(Guid IncidentId, DateTime Timestamp, string Version = "00.01");
 
     // Events
-    public record IncidentCreatedEvent(Guid IncidentId, string Name, string Description, DateTime Timestamp) : Event(IncidentId, Timestamp);
-    public record AgentAssignedEvent(Guid IncidentId, Guid AgentId, DateTime Timestamp) : Event(IncidentId, Timestamp);
-    public record PrioritySetEvent(Guid IncidentId, Priority Priority, DateTime Timestamp) : Event(IncidentId, Timestamp);
-    public record CommentAddedEvent(Guid IncidentId, string Comment, string Author, DateTime Timestamp) : Event(IncidentId, Timestamp);
-    public record StatusUpdatedEvent(Guid IncidentId, IncidentStatus Status, DateTime Timestamp) : Event(IncidentId, Timestamp);
-    public record IncidentAcknowledgedEvent(Guid IncidentId, DateTime Timestamp) : Event(IncidentId, Timestamp);
-    public record IncidentClosedEvent(Guid IncidentId, DateTime Timestamp) : Event(IncidentId, Timestamp);
+    public record IncidentCreatedEvent(Guid IncidentId, string Name, string Description, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
+    public record AgentAssignedEvent(Guid IncidentId, Guid AgentId, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
+    public record PrioritySetEvent(Guid IncidentId, Priority Priority, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
+    public record CommentAddedEvent(Guid IncidentId, string Comment, string Author, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
+    public record StatusUpdatedEvent(Guid IncidentId, IncidentStatus Status, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
+    public record IncidentAcknowledgedEvent(Guid IncidentId, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
+    public record IncidentClosedEvent(Guid IncidentId, DateTime Timestamp, string Version = "00.01") : Event(IncidentId, Timestamp, Version);
 
     // Enums
     public enum Priority { Low, Medium, High, Critical }
@@ -149,3 +148,4 @@
         Task SaveAsync(Incident incident);
     }
 }
+
