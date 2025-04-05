@@ -47,7 +47,7 @@ GoogleAIStudio/
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/SapanPatibandha/GoogleAIStudio.git
+git clone https://github.com/SapanPatibandha/IncidentMgmt.CSharp.git
 cd GoogleAIStudio
 ```
 
