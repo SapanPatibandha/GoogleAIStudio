@@ -225,5 +225,38 @@ namespace IncidentManagement.ReadModels.Tests
             // Assert
             _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
         }
+
+        [Fact]
+        public async Task UpdateIncidentReadModelAsync_ShouldHandleIncidentClosedEvent()
+        {
+            var mockReader = new Mock<IDataReader>();
+
+            // Arrange
+            var @event = new IncidentClosedEvent(
+                Guid.NewGuid(),
+                DateTime.UtcNow
+            );
+
+            _databaseQueryExecutorMock.Setup(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()))
+                .ReturnsAsync(mockReader.Object);
+
+            // Act
+            await _repository.UpdateIncidentReadModelAsync(@event);
+
+            // Assert
+            _databaseQueryExecutorMock.Verify(c => c.ExecuteReaderAsync(It.IsAny<string>(), It.IsAny<object[]>()), Times.Once);
+        }
+
+        [Fact]
+        public async Task UpdateIncidentReadModelAsync_ShouldHandleInvalidEventType()
+        {
+            // Arrange
+            var mockReader = new Mock<IDataReader>();
+            var invalidEvent = new Mock<Event>(Guid.NewGuid(), DateTime.UtcNow).Object;
+
+            // Act & Assert
+            await Assert.ThrowsAsync<NotSupportedException>(() =>
+                _repository.UpdateIncidentReadModelAsync(invalidEvent));
+        }
     }
 }
