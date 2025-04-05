@@ -5,7 +5,9 @@ namespace IncidentManagement.Api
     using IncidentManagement.Infrastructure;
     using IncidentManagement.ReadModels;
     using Microsoft.AspNetCore.Mvc;
-
+    using FluentValidation;
+    using FluentValidation.AspNetCore;
+    using IncidentManagement.Application.Validation;
     internal class Program
     {
         private static void Main(string[] args)
@@ -27,6 +29,9 @@ namespace IncidentManagement.Api
                 new PostgresIncidentRepository(connectionString)); // Register PostgresIncidentRepository
             builder.Services.AddScoped<IncidentApplicationService>();
 
+            builder.Services.AddFluentValidationAutoValidation();
+            builder.Services.AddValidatorsFromAssemblyContaining<CreateIncidentCommandValidator>();
+
             // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
             builder.Services.AddEndpointsApiExplorer();
             builder.Services.AddSwaggerGen();
@@ -45,8 +50,16 @@ namespace IncidentManagement.Api
             // --- Minimal API Endpoints ---
 
             // Create Incident
-            app.MapPost("/api/incidents", async (CreateIncidentCommand command, IncidentApplicationService incidentService) =>
+            app.MapPost("/api/incidents", async (
+                CreateIncidentCommand command,
+                IValidator<CreateIncidentCommand> validator,
+                IncidentApplicationService incidentService) =>
             {
+                var validationResult = await validator.ValidateAsync(command);
+                if (!validationResult.IsValid)
+                {
+                    return Results.BadRequest(validationResult.Errors.Select(e => new { e.PropertyName, e.ErrorMessage }));
+                }
                 var incidentId = await incidentService.Handle(command);
                 return Results.Created($"/api/incidents/{incidentId}", incidentId);
             })
