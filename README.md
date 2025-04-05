@@ -47,7 +47,7 @@ GoogleAIStudio/
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/SapanPatibandha/GoogleAIStudio.git
+git clone https://github.com/SapanPatibandha/IncidentMgmt.CSharp.git
 cd GoogleAIStudio
 ```
 
@@ -239,4 +239,4 @@ Contributions are welcome! Please follow these steps:
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 
 ## Contact
-For questions or feedback, please contact [your-email@example.com](mailto:your-email@example.com).
+For questions or feedback, please contact [patibandha@gmail.com](patibandha@gmail.com).
