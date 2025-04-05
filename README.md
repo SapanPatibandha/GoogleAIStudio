@@ -33,6 +33,9 @@ GoogleAIStudio/
 - **PostgreSQL Integration**: Uses PostgreSQL for persistence.
 - **Docker Support**: Includes Docker and Docker Compose for containerized deployment.
 - **Unit Testing**: Comprehensive test coverage for all layers.
+- **RESTful API**: Well-documented REST endpoints for incident management.
+- **Async/Await Pattern**: Full asynchronous implementation for better performance.
+- **CQRS Pattern**: Separate command and query responsibilities.
 
 ## Prerequisites
 - [.NET 9.0 or later](https://dotnet.microsoft.com/download)
@@ -126,6 +129,59 @@ dotnet test
    - Navigate to the `coverage-report` folder.
    - Open `index.html` in your browser.
 
+## API Endpoints
+
+### Incidents
+- `GET /api/incidents` - List all incidents
+- `GET /api/incidents/{id}` - Get incident details
+- `POST /api/incidents` - Create new incident
+- `PUT /api/incidents/{id}` - Update incident
+- `DELETE /api/incidents/{id}` - Delete incident
+
+### Comments
+- `POST /api/incidents/{id}/comments` - Add comment to incident
+- `GET /api/incidents/{id}/comments` - Get incident comments
+
+## Environment Variables
+The application uses the following environment variables:
+
+```ini
+# Database Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_DB=incidentdb
+POSTGRES_USER=your_user
+POSTGRES_PASSWORD=your_password
+
+# API Configuration
+ASPNETCORE_ENVIRONMENT=Development
+ASPNETCORE_URLS=http://+:8080
+```
+
+## Development
+
+### Required Tools
+- Visual Studio 2022 or Visual Studio Code
+- .NET SDK 9.0
+- Docker Desktop
+- PostgreSQL Client (optional)
+
+### Visual Studio Code Extensions
+- C# Dev Kit
+- Docker
+- PostgreSQL
+
+### Debugging
+1. Set environment variables in `launchSettings.json`
+2. Start PostgreSQL using Docker:
+   ```bash
+   docker-compose up db -d
+   ```
+3. Run the API project:
+   ```bash
+   dotnet run --project src/IncidentManagement.Api
+   ```
+
 ## Troubleshooting
 
 ### Common Issues
@@ -143,6 +199,35 @@ dotnet test
        context: ..
        dockerfile: docker/Dockerfile
      ```
+
+## Architecture
+
+### Project Dependencies
+```
+IncidentManagement.Api
+└── IncidentManagement.Application
+    ├── IncidentManagement.Domain
+    └── IncidentManagement.Infrastructure
+        └── IncidentManagement.ReadModels
+```
+
+### Event Flow
+1. API receives command
+2. Application layer validates command
+3. Domain layer creates/updates entity and generates events
+4. Infrastructure layer persists events
+5. Read model is updated based on events
+
+## Logging
+The application uses Serilog for structured logging with the following sinks:
+- Console
+- File (rolling daily logs)
+- PostgreSQL (for production)
+
+## Monitoring
+- Health checks available at `/health`
+- Metrics exposed at `/metrics` (Prometheus format)
+- OpenTelemetry integration for distributed tracing
 
 ## Contributing
 Contributions are welcome! Please follow these steps:
